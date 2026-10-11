@@ -1,0 +1,19 @@
+---
+
+- hosts: all
+  become: true
+  tasks:
+  - name: install update
+    apt:
+      upgrade: dist
+      update_cache: yes
+    when: ansible_distribution == "Ubuntu"
+
+- hosts: SRV1
+  become: true
+  tasks:
+    - name: install apache
+      package:
+         name:
+          - apache2
+         state: latest
