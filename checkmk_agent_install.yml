@@ -1,0 +1,15 @@
+---
+
+- hosts: all
+  become: true
+  tasks:
+  - name: hole agent datei von CheckMK host
+    ansible.builtin.get_url:
+      url: http://192.168.56.101:8080/cmk/check_mk/agents/check-mk-agent_2.5.0p15-1_all.deb
+      dest: /opt/checkmk_agent.deb
+      mode: "0755"
+  
+  - name: install agent from file
+    ansible.builtin.apt:
+      deb: /opt/checkmk_agent.deb
+      

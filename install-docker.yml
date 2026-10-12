@@ -1,0 +1,89 @@
+---
+# Installiert Docker Engine und das Docker-Compose-V2-Plugin auf Debian/Ubuntu.
+- name: Docker und Docker Compose installieren
+  # Alle Hosts aus dem Inventar bearbeiten.
+  hosts: all
+
+  # Aufgaben mit Root-Rechten ausführen, da Pakete und Systemdienste geändert werden.
+  become: true
+
+  tasks:
+    # Installiert Werkzeuge, die zum Abrufen des Docker-Schlüssels benötigt werden.
+    - name: Benötigte Pakete installieren
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: true
+        # Den Paketindex höchstens einmal pro Stunde aktualisieren.
+        cache_valid_time: 3600
+
+    # Stellt sicher, dass das Verzeichnis für Repository-Schlüssel existiert.
+    - name: Verzeichnis für APT-Schlüssel erstellen
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    # Lädt den offiziellen Docker-Signaturschlüssel herunter.
+    - name: Docker GPG-Schlüssel herunterladen
+      ansible.builtin.get_url:
+        url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    # Fügt das offizielle Docker-APT-Repository passend zur Distribution hinzu.
+    - name: Docker-Repository hinzufügen
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ 'amd64' if ansible_architecture == 'x86_64'
+          else 'arm64' if ansible_architecture == 'aarch64'
+          else ansible_architecture }}
+          signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/{{ ansible_distribution | lower }}
+          {{ ansible_distribution_release }} stable
+        filename: docker
+        state: present
+        # Aktualisiert den Paketindex, damit APT Docker-Pakete findet.
+        update_cache: true
+
+    # Installiert Docker Engine, die CLI, containerd sowie Compose und Buildx.
+    - name: Docker und Docker Compose installieren
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        # Pakete werden nur installiert, wenn sie noch fehlen.
+        state: present
+        update_cache: true
+
+    # Startet Docker sofort und aktiviert den automatischen Start beim Booten.
+    - name: Docker-Dienst starten und aktivieren
+      ansible.builtin.systemd_service:
+        name: docker
+        state: started
+        enabled: true
+
+    # Prüft, ob der Docker-Befehl verfügbar ist.
+    - name: Docker-Version überprüfen
+      ansible.builtin.command: docker --version
+      register: docker_version
+      # Der Prüfschritt zählt nicht als Änderung am System.
+      changed_when: false
+
+    # Prüft, ob das Docker-Compose-Plugin installiert und aufrufbar ist.
+    - name: Docker-Compose-Version überprüfen
+      ansible.builtin.command: docker compose version
+      register: compose_version
+      changed_when: false
+
+    # Gibt die ermittelten Versionsinformationen im Ansible-Ausgabefenster aus.
+    - name: Installierte Versionen anzeigen
+      ansible.builtin.debug:
+        msg:
+          - "{{ docker_version.stdout }}"
+          - "{{ compose_version.stdout }}"
