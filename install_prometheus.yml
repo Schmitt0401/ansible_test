@@ -1,0 +1,33 @@
+---
+
+- hosts: SRV1
+  become: true
+  tasks:
+  - name: install update
+    apt:
+      upgrade: dist
+      update_cache: yes
+    when: ansible_distribution == "Ubuntu"
+
+  - name: compose verzeichnis erstellen
+    ansible.builtin.file:
+      path: /opt/prometheus
+      state: directory
+      mode: "0755"
+  
+  - name: compose auf Ziel verschieben
+    ansible.builtin.copy:
+      src: ./container/prometheus/compose.yml
+      dest: /opt/prometheus
+      mode: "0644"
+
+  - name: container starten
+    community.docker.docker_compose_v2:
+      project_src: /opt/prometheus
+      files:
+        - compose.yml
+      state: present
+      
+      
+
+
